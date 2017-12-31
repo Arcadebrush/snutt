@@ -1,4 +1,4 @@
-import {findRefLectureWithSemester, LectureDocument} from '../../../model/lecture';
+import {RefLectureModel} from '../../../model/lecture';
 import Util = require('../../../lib/util');
 import * as log4js from 'log4js';
 var logger = log4js.getLogger();
@@ -28,7 +28,7 @@ export class LectureDiff {
     this.updated = [];
   }
 
-  addLecture(array:LectureIdent[], lecture:LectureDocument) {
+  addLecture(array:LectureIdent[], lecture:RefLectureModel) {
     array.push({
       course_number: lecture.course_number,
       lecture_number: lecture.lecture_number,
@@ -36,9 +36,9 @@ export class LectureDiff {
     });
   };
 
-  addCreated(lecture:LectureDocument) { this.addLecture(this.created, lecture) };
-  addRemoved(lecture:LectureDocument) { this.addLecture(this.removed, lecture) };
-  addUpdated(updatedObj:any, lecture:LectureDocument) {
+  addCreated(lecture:RefLectureModel) { this.addLecture(this.created, lecture) };
+  addRemoved(lecture:RefLectureModel) { this.addLecture(this.removed, lecture) };
+  addUpdated(updatedObj:any, lecture:RefLectureModel) {
     updatedObj.course_number = lecture.course_number;
     updatedObj.lecture_number = lecture.lecture_number;
     updatedObj.course_title = lecture.course_title;
@@ -46,9 +46,9 @@ export class LectureDiff {
   };
 }
 
-export async function compareLectures(year:number, semester: number, new_lectures:LectureDocument[]): Promise<LectureDiff> {
+export async function compareLectures(year:number, semester: number, new_lectures:RefLectureModel[]): Promise<LectureDiff> {
   logger.info("Pulling existing lectures...");
-  var old_lectures = <LectureDocument[]>await findRefLectureWithSemester(year, semester);
+  var old_lectures = await RefLectureModel.findBySemester(year, semester);
   var diff = new LectureDiff();
   var checked:boolean[] = [];
   for (let i=0; i<new_lectures.length; i++) {

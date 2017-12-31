@@ -4,7 +4,7 @@
  */
 
 import express = require("express");
-const db = require('./db');
+import db = require('./db');
 import morgan = require("morgan");
 import cookieParser = require("cookie-parser");
 import bodyParser = require("body-parser");
@@ -19,9 +19,7 @@ import * as log4js from 'log4js';
 import {getLogFilePath} from './log/log';
 var logger = log4js.getLogger();
 
-var app = express();
-
-if (app.get('env') !== 'mocha') {
+if (process.env.NODE_ENV !== 'mocha') {
   log4js.configure({
     appenders: { 
       'stderr': { type : 'stderr' },
@@ -46,13 +44,16 @@ if (app.get('env') !== 'mocha') {
   });
 }
 
+var app = express();
+
+
 // view engine setup
 //app.set('views', path.join(__dirname, 'views'));
 //app.set('view engine', 'jade');
 
 // uncomment after placing your favicon in /public
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
-if (app.get('env') !== 'mocha')
+if (process.env.NODE_ENV !== 'mocha')
   app.use(morgan('tiny'));
 // Only for development
 app.use(cors());
@@ -64,14 +65,6 @@ app.use('/asset', express.static('asset'));
 app.use('/', routes);
 app.engine('.html', require('ejs').renderFile);
 app.set('views', './views')
-// catch 404 and forward to error handler
-/*
-app.use(function(req, res, next) {
-  var err = new Error('Not Found');
-  err.status = 404;
-  next(err);
-});
-*/
 
 // error handlers
 

@@ -8,7 +8,7 @@
 const db = require('../db');
 import config = require('../config/config');
 import * as request from 'request-promise-native';
-import {FeedbackDocument, getFeedback, removeFeedback} from '../model/feedback';
+import {FeedbackModel} from '../model/feedback';
 
 import {getLogFilePath} from '../log/log';
 import * as log4js from 'log4js';
@@ -49,7 +49,7 @@ async function getUserName(): Promise<string> {
     });
 }
 
-async function dumpFeedback(feedbackObj: FeedbackDocument): Promise<void> {
+async function dumpFeedback(feedbackObj: FeedbackModel): Promise<void> {
     let issue: any = {}
     if (!feedbackObj.message) {
         logger.warn("No message field in feedback document");
@@ -90,7 +90,7 @@ async function main() {
         logger.info("Logged-in as " + userName);
         logger.info("Dumping feedbacks into " + repoOwner + "/" + repoName);
 
-        let feedbacks = await getFeedback(100, 0);
+        let feedbacks = await FeedbackModel.get(100, 0);
         let feedbackIds = [];
 
         logger.info("Fetched " + feedbacks.length + " documents");
@@ -101,7 +101,7 @@ async function main() {
         }
         logger.info("Successfully inserted");
 
-        await removeFeedback(feedbackIds);
+        await FeedbackModel.remove(feedbackIds);
         logger.info("Removed from mongodb");
     } catch (err) {
         logger.error(err);

@@ -1,16 +1,20 @@
-import mongoose = require('mongoose');
+import db = require('../db');
 import * as fs from 'fs';
 import {getLogFilePath} from '../log/log';
 
+var userCollection = db.collection('users');
+var tableCollection = db.collection('timetables');
+var querylogCollection = db.collection('query_logs');
+
 export async function getStatistics() {
     let yesterdayTime = Date.now() - 24 * 3600000;
-    let userCountPromise = mongoose.connection.db.collection('users').count({});
-    let tempUserCountPromise = mongoose.connection.db.collection('users')
+    let userCountPromise = userCollection.count({});
+    let tempUserCountPromise = userCollection
             .count({
                 $and: [{"credential.localId": null}, {"credential.fbId": null}]
             });
-    let tableCountPromise = mongoose.connection.db.collection('timetables').count({});
-    let recentQueryCountPromise = mongoose.connection.db.collection('query_logs')
+    let tableCountPromise = tableCollection.count({});
+    let recentQueryCountPromise = querylogCollection
             .count({timestamp: { $gt: yesterdayTime}});
     return {
         userCount: await userCountPromise,

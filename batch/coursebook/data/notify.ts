@@ -27,20 +27,20 @@ export async function notifyUpdated(year:number, semesterIndex:number, diff:Lect
 
             try {
               await timetable.updateLecture(lectureId, updated_lecture.after);
-              if (num_updated_per_user[timetable.userId]) num_updated_per_user[timetable.userId]++;
-              else num_updated_per_user[timetable.userId] = 1;
-              await NotificationModel.createNotification(
-                timetable.userId,
+              if (num_updated_per_user[timetable.user_id]) num_updated_per_user[timetable.user_id]++;
+              else num_updated_per_user[timetable.user_id] = 1;
+              await NotificationModel.insert(
+                timetable.user_id,
                 "'"+timetable.title+"' 시간표의 '"+updated_lecture.course_title+"' 강의가 업데이트 되었습니다.",
                 NotificationType.LECTURE_UPDATE,
                 noti_detail);
             } catch (err) {
               if (err == errcode.LECTURE_TIME_OVERLAP) {
                 await timetable.deleteLecture(lectureId);
-                if (num_removed_per_user[timetable.userId]) num_removed_per_user[timetable.userId]++;
-                else num_removed_per_user[timetable.userId] = 1; 
-                await NotificationModel.createNotification(
-                  timetable.userId,
+                if (num_removed_per_user[timetable.user_id]) num_removed_per_user[timetable.user_id]++;
+                else num_removed_per_user[timetable.user_id] = 1; 
+                await NotificationModel.insert(
+                  timetable.user_id,
                   "'"+timetable.title+"' 시간표의 '"+updated_lecture.course_title+
                     "' 강의가 업데이트되었으나, 시간표가 겹쳐 삭제되었습니다.",
                   NotificationType.LECTURE_REMOVE,
@@ -70,10 +70,10 @@ export async function notifyUpdated(year:number, semesterIndex:number, diff:Lect
             let lectureId = timetable.findLectureId(removed_lecture.course_number, removed_lecture.lecture_number);
             
             await timetable.deleteLecture(lectureId);
-            if (num_removed_per_user[timetable.userId]) num_removed_per_user[timetable.userId]++;
-            else num_removed_per_user[timetable.userId] = 1; 
-            await NotificationModel.createNotification(
-              timetable.userId,
+            if (num_removed_per_user[timetable.user_id]) num_removed_per_user[timetable.user_id]++;
+            else num_removed_per_user[timetable.user_id] = 1; 
+            await NotificationModel.insert(
+              timetable.user_id,
               "'"+timetable.title+"' 시간표의 '"+removed_lecture.course_title+"' 강의가 폐강되어 삭제되었습니다.",
               NotificationType.LECTURE_REMOVE,
               noti_detail);

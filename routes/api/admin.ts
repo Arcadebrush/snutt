@@ -6,8 +6,8 @@ import express = require('express');
 import errcode = require('../../lib/errcode');
 import {UserModel} from '../../model/user';
 import {CourseBookModel} from '../../model/courseBook';
-import {getRecentFcmLog} from '../../model/fcmLog';
-import {getFeedback} from '../../model/feedback';
+import {FcmLogModel} from '../../model/fcmLog';
+import {FeedbackModel} from '../../model/feedback';
 import {getStatistics, getLogFileContent} from '../../model/admin';
 import {NotificationModel, Type as NotificationType} from '../../model/notification';
 import * as log4js from 'log4js';
@@ -38,12 +38,12 @@ router.post('/insert_noti', async function(req, res, next) {
       if (insertFcm) {
         await receiver.sendFcmMsg(title, body, sender._id, "admin");
       }
-      await NotificationModel.createNotification(receiver._id, body, type, detail);
+      await NotificationModel.insert(receiver._id, body, type, detail);
     } else {
       if (insertFcm) {
         await UserModel.sendGlobalFcmMsg(title, body, sender._id, "admin");
       }
-      await NotificationModel.createNotification(null, body, type, detail);
+      await NotificationModel.insert(null, body, type, detail);
     }
     res.send({message: "ok"});
   } catch (err) {
@@ -66,7 +66,7 @@ router.get('/log_content/:fileName', async function(req, res, next) {
 });
 
 router.get('/recent_fcm_log', async function(req, res, next) {
-  let logs = await getRecentFcmLog();
+  let logs = await FcmLogModel.getRecent();
   return res.json(logs);
 });
 
@@ -80,7 +80,7 @@ router.get('/feedbacks', async function(req, res, next) {
   let offset = 0;
   if (req.body.limit) limit = req.body.limit;
   if (req.body.offset) offset = req.body.offset;
-  let feedbacks = await getFeedback(limit, offset);
+  let feedbacks = await FeedbackModel.get(limit, offset);
   return res.json(feedbacks);
 });
 

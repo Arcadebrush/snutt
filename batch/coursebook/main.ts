@@ -6,14 +6,14 @@
  * @author Jang Ryeol, ryeolj5911@gmail.com
  */
 
-const db = require('../../db');
+import db = require('../../db');
 import fs = require('fs');
 import {fetchSugangSnu} from './data/fetch';
 import {TagStruct, parseLines} from './data/parse';
 import {LectureDiff, compareLectures} from './data/compare';
 import {notifyUpdated} from './data/notify';
 import {CourseBookModel} from '../../model/courseBook';
-import {LectureDocument, deleteAllSemester, insertManyRefLecture} from '../../model/lecture';
+import {RefLectureModel} from '../../model/lecture';
 import {NotificationModel, Type as NotificationType} from '../../model/notification';
 import {TagList} from '../../model/tagList';
 import {UserModel} from '../../model/user';
@@ -105,12 +105,12 @@ export async function fetchAndInsert(year:number, semesterIndex:number, fcm_enab
   logger.info("Sending notifications...");
   await notifyUpdated(year, semesterIndex, compared, fcm_enabled);
 
-  await deleteAllSemester(year, semesterIndex);
+  await RefLectureModel.dropWholeSemester(year, semesterIndex);
   logger.info("Removed existing lecture for this semester");
 
   logger.info("Inserting new lectures...");
-  var docs = await insertManyRefLecture(parsed.new_lectures);
-  logger.info("Insert complete with " + docs.length + " success and "+ (parsed.new_lectures.length - docs.length) + " errors");
+  var inserted = await RefLectureModel.insertMany(parsed.new_lectures);
+  logger.info("Insert complete with " + inserted + " success and "+ (parsed.new_lectures.length - inserted) + " errors");
 
   logger.info("Inserting tags from new lectures...");
   for (var key in parsed.tags) {
@@ -123,17 +123,11 @@ export async function fetchAndInsert(year:number, semesterIndex:number, fcm_enab
 
   logger.info("saving coursebooks...");
   /* Send notification only when coursebook is new */
-  var doc = await CourseBookModel.findOneAndUpdate({ year: Number(year), semester: semesterIndex },
-    { updated_at: Date.now() },
-    {
-      new: false,   // return new doc
-      upsert: true // insert the document if it does not exist
-    })
-    .exec();
+  var doc = await CourseBookModel.update(Number(year), semesterIndex);
 
   if (!doc) {
     if (fcm_enabled) await UserModel.sendGlobalFcmMsg("신규 수강편람", noti_msg, "batch/coursebook", "new coursebook");
-    await NotificationModel.createNotification(null, noti_msg, NotificationType.COURSEBOOK, null);
+    await NotificationModel.insert(null, noti_msg, NotificationType.COURSEBOOK, null);
     logger.info("Notification inserted");
   }
   return;

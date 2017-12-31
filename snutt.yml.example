@@ -2,7 +2,10 @@ secretKey: test
 host: localhost
 port: 3000
 email: snutt@wafflestudio.com
-mongo: mongodb://localhost/snutt
+mongo:
+  uri: mongodb://localhost
+  db: snutt
+  test_db: snutt_test
 fcm:
   api_key: testapikey
   project_id: testprojectid

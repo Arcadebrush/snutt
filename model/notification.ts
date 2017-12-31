@@ -2,7 +2,7 @@
  * Notification Model
  * Jang Ryeol, ryeolj5911@gmail.com
  */
-import mongoose = require('mongoose');
+import db = require('../db');
 import errcode = require('../lib/errcode');
 import {UserModel} from './user';
 import fcm = require('../lib/fcm');
@@ -23,66 +23,54 @@ export let Type = {
   LINK_ADDR : 4
 };
 
-export interface NotificationDocument extends mongoose.Document{
-  user_id : mongoose.Schema.Types.ObjectId,
-  message : String,
-  created_at : Date,
-  type : Number,
-  detail : mongoose.Schema.Types.Mixed
-}
-
-interface _NotificationModel extends mongoose.Model<NotificationDocument>{
-  getNewest(user:UserModel, offset:number, limit:number,
-      cb?:(err, docs:mongoose.Types.DocumentArray<NotificationDocument>)=>void)
-      :Promise<mongoose.Types.DocumentArray<NotificationDocument>>;
-  countUnread(user:UserModel, cb?:(err, count:number)=>void):Promise<number>;
-  createNotification(user_id:string, message:string, type:Number, detail:any):Promise<NotificationDocument>;
-}
-
-var NotificationSchema = new mongoose.Schema({
-  user_id : { type: mongoose.Schema.Types.ObjectId, ref: 'User', default : null},
-  message : { type : String, required : true },
-  created_at : { type : Date, required : true},
-  type : { type: Number, required : true, default : Type.NORMAL },
-  detail : { type: mongoose.Schema.Types.Mixed, default : null }
-});
-
+/*
 NotificationSchema.index({user_id: 1});
 NotificationSchema.index({created_at: -1});
+*/
 
-NotificationSchema.statics.getNewest = function (user: UserModel, offset, limit, callback) {
-  let query = {
+var notificationCollection = db.collection("notifications");
+
+export class NotificationModel {
+  _id: string
+  user_id: string
+  message: string
+  created_at: Date
+  type: number
+  detail: any
+
+  static getNewest(user: UserModel, offset, limit): Promise<NotificationModel[]> {
+    let query = {
       user_id: { $in: [ null, user._id ] }
     };
-  let regDate = user.getRegDate();
-  if (regDate) query["created_at"] = { $gt: regDate }
-  return NotificationModel.find(query)
-    .sort('-created_at')
-    .skip(offset)
-    .limit(limit)
-    .lean()
-    .exec(callback);
-};
+    let regDate = user.getRegDate();
+    if (regDate) query["created_at"] = { $gt: regDate };
+    return notificationCollection.find(query, {
+      sort: {created_at: -1},
+      skip: offset,
+      limit: limit
+    })
+  }
 
-NotificationSchema.statics.countUnread = function (user, callback) {
-  return NotificationModel.where('user_id').in([null, user._id])
-    .count({created_at : {$gt : user.notificationCheckedAt}})
-    .exec(callback);
-};
+  static countUnread(user: UserModel): Promise<number> {
+    return notificationCollection.count({
+      user_id: {
+        $in: [null, user._id]
+      },
+      created_at: {
+        $gt: user.notificationCheckedAt
+      }
+    });
+  }
 
-// if user_id_array is null or not array, create it as global
-NotificationSchema.statics.createNotification = function (user_id, message, type, detail) {
-  if (!type) type = 0;
-  if (Number(type) == Type.LINK_ADDR && typeof(detail) != "string") return Promise.reject(errcode.INVALID_NOTIFICATION_DETAIL);
-  var notification = new NotificationModel({
-    user_id : user_id,
-    message : message,
-    created_at : Date.now(),
-    type : Number(type),
-    detail : detail
-  });
-
-  return notification.save();
-};
-
-export let NotificationModel = <_NotificationModel>mongoose.model<NotificationDocument>('Notification', NotificationSchema);
+  static async insert(user_id: string, message: string, type: number, detail: any) {
+    if (!type) type = 0;
+    if (Number(type) == Type.LINK_ADDR && typeof(detail) != "string") throw errcode.INVALID_NOTIFICATION_DETAIL;
+    await notificationCollection.insertOne({
+      user_id : user_id,
+      message : message,
+      created_at : Date.now(),
+      type : Number(type),
+      detail : detail
+    })
+  }
+}

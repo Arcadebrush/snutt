@@ -2,41 +2,38 @@
  * 유저로부터 피드백을 입력 받아 DB에 삽입
  */
 
-import mongoose = require('mongoose');
+import db = require('../db');
 
-export interface FeedbackDocument extends mongoose.Document {
-  email: string,
-  message: string,
-  timestamp: number,
+// FeedbackSchema.index({timestamp: -1});
+var feedbackCollection = db.collection("feedbacks");
+
+export class FeedbackModel {
+  _id: string
+  email: string
+  message: string
+  timestamp: number
   platform: string
-}
 
-var FeedbackSchema = new mongoose.Schema({
-  email: String,
-  message: String,
-  timestamp: Number,
-  platform: String
-});
+  static async insert(email: string, message: string, platform: string): Promise<void> {
+    let feedback = {
+      email: email,
+      message: message,
+      timestamp: Date.now(),
+      platform: platform
+    };
+  
+    await feedbackCollection.insertOne(feedback);
+  }
 
-FeedbackSchema.index({timestamp: -1});
+  static async get(limit: number, offset: number): Promise<FeedbackModel[]> {
+    return await feedbackCollection.find({}, {
+      sort: {timestamp: 1},
+      skip: offset,
+      limit: limit
+    });
+  }
 
-let FeedbackModel = mongoose.model<FeedbackDocument>('Feedback', FeedbackSchema);
-
-export async function insertFeedback(email: string, message: string, platform: string): Promise<void> {
-  let feedback = {
-    email: email,
-    message: message,
-    timestamp: Date.now(),
-    platform: platform
-  };
-  var feedbackDocument = new FeedbackModel(feedback);
-  await feedbackDocument.save();
-}
-
-export function getFeedback(limit: number, offset: number): Promise<FeedbackDocument[]> {
-  return FeedbackModel.find().sort({'timestamp': 1}).skip(offset).limit(limit).exec();
-}
-
-export async function removeFeedback(ids: any[]): Promise<any> {
-  return FeedbackModel.remove({_id: { $in: ids }}).exec();
+  static async remove(ids: any[]): Promise<any> {
+    return feedbackCollection.deleteMany({_id: { $in: ids }});
+  }
 }

@@ -14,7 +14,7 @@ import db = require('../../db');
 import app = require('../../app');
 
 var CourseBookModel = require('../../model/courseBook').CourseBookModel;
-import {newRefLecture} from '../../model/lecture';
+import {RefLectureModel} from '../../model/lecture';
 
 let request = supertest(app);
 describe('API Test', function() {
@@ -25,30 +25,21 @@ describe('API Test', function() {
       return done(new Error("Invalid config. Please set conf.yml"));
   });
 
-  // Change connection into test DB in order not to corrupt production DB
-  before('close snutt db and open snutt_test', function(done) {
-    if (!db.connection.readyState)
-      return done(new Error("DB not connected"));
-    db.connection.close(function() {
-      db.connect('mongodb://localhost/snutt_test', function(err){
-        return done(err);
-      });
-    });
-  });
-
   // Clean Test DB
-  // mongoose.connection.db.dropDatabase()
+  // db.dropDatabase()
   // dose not actually drop the db, but actually clears it
   before('clear snutt_test db', function(done) {
-    db.connection.db.dropDatabase(function(err) {
+    db.dropDatabase().then(function(){
+      done();
+    }).catch(function(err){
       done(err);
     });
   });
 
   // Add 2 coursebooks, 2016-2 and 2015-W
   before('add initial coursebooks for test', function(done) {
-    let promise1 = new CourseBookModel({ year: 2015, semester: 4, updated_at: Date.now()}).save();
-    let promise2 = new CourseBookModel({ year: 2016, semester: 3, updated_at: Date.now()}).save();
+    let promise1 = db.collection("coursebooks").insertOne({ year: 2015, semester: 4, updated_at: Date.now()});
+    let promise2 = db.collection("coursebooks").insertOne({ year: 2016, semester: 3, updated_at: Date.now()});
     Promise.all([promise1, promise2]).catch(function(err) {
       done(err);
     }).then(function(result) {
@@ -56,8 +47,8 @@ describe('API Test', function() {
     });
   });
 
-  before('insert initial lecture for test', function(done) {
-    var myLecture = newRefLecture({
+  before('insert initial lecture for test', async function(done) {
+    await RefLectureModel.insertMany([{
         "year": 2016,
         "semester": 3,
         "classification": "전선",
@@ -102,8 +93,8 @@ describe('API Test', function() {
             "_id": "56fcd83c041742971bd20a87"
           }
         ],
-    });
-    myLecture.save(done);
+    }]);
+    done();
   });
 
   // Register test user
@@ -117,15 +108,11 @@ describe('API Test', function() {
       });
   });
 
-  it('MongoDB >= 2.4', function(done) {
-    var admin = db.connection.db.admin();
-    admin.buildInfo(function (err, info) {
-      if (err)
-        return done(err);
-      if (parseFloat(info.version) < 2.4)
-        return done(new Error("MongoDB version("+info.version+") is outdated(< 2.4). Service might not work properly"));
-      done();
-    });
+  it('MongoDB >= 2.4', async function(done) {
+    let info = await db.buildInfo();
+    if (parseFloat(info.version) < 2.4)
+      return done(new Error("MongoDB version("+info.version+") is outdated(< 2.4). Service might not work properly"));
+    done();
   });
 
   it('Recent Coursebook', function(done) {

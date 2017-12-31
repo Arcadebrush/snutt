@@ -1,4 +1,3 @@
-import mongoose = require('mongoose');
 import assert = require('assert');
 import _ = require('lodash');
 import errcode = require('./errcode');

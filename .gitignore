@@ -11,4 +11,3 @@ data/data.zip
 dashboard/src/samples/
 snutt.yml
 *.js.map
-package-lock.json

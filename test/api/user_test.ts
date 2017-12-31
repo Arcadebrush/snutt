@@ -17,7 +17,7 @@ export = function(app, db, request) {
       .send({id:"snutt", password:"abc1234"})
       .expect(200)
       .end(function(err, res){
-        if (err) console.log(res);
+        if (err) console.log(res.body);
         token = res.body.token;
         done(err);
       });
@@ -28,7 +28,7 @@ export = function(app, db, request) {
       .set('x-access-token', token)
       .expect(200)
       .end(function(err, res){
-        if (err) console.log(res);
+        if (err) console.log(res.body);
         done(err);
       });
   });
@@ -37,7 +37,7 @@ export = function(app, db, request) {
     request.get('/user/info')
       .expect(401)
       .end(function(err, res){
-        if (err) console.log(res);
+        if (err) console.log(res.body);
         assert.equal(res.body.errcode, errcode.NO_USER_TOKEN);
         done(err);
       });
@@ -48,7 +48,7 @@ export = function(app, db, request) {
       .set('x-access-token', "abcd")
       .expect(403)
       .end(function(err, res){
-        if (err) console.log(res);
+        if (err) console.log(res.body);
         assert.equal(res.body.errcode, errcode.WRONG_USER_TOKEN);
         done(err);
       });
@@ -90,7 +90,7 @@ export = function(app, db, request) {
       .send({id:"snutt2", password:"abc1234f"})
       .expect(200)
       .end(function(err, res){
-        if (err) console.log(res);
+        if (err) console.log(res.body);
         token2 = res.body.token;
         done(err);
       });
@@ -130,7 +130,7 @@ export = function(app, db, request) {
         .send({new_password:"abc1234*", old_password:"abc1234f"})
         .expect(200)
         .end(function(err, res){
-          if (err) console.log(res);
+          if (err) console.log(res.body);
           token2 = res.body.token;
           done(err);
         });
@@ -231,7 +231,7 @@ export = function(app, db, request) {
       .expect(200)
       .end(function(err, res) {
         if (err) done(err);
-        assert.equal(res.body[0].title, "나의 시간표");
+        assert.equal(res.body[0].title, "2016-2");
         assert.equal(res.body[0].year, 2016);
         assert.equal(res.body[0].semester, 3);
         done();
@@ -404,7 +404,7 @@ export = function(app, db, request) {
         .send({fb_id:"1234", fb_token: fb_token})
         .expect(200)
         .end(function(err, res){
-          if (err) console.log(res);
+          if (err) console.log(err);
           token = res.body.token;
           done(err);
         });
@@ -647,7 +647,7 @@ export = function(app, db, request) {
         .send({id:"snuttar", password:"abc1234*"})
         .expect(200)
         .end(function(err, res){
-          if (err) console.log(res);
+          if (err) console.log(res.body);
           token = res.body.token;
           done(err);
         });
@@ -668,7 +668,7 @@ export = function(app, db, request) {
         .set('x-access-token', token)
         .expect(403)
         .end(function(err, res){
-          if (err) console.log(res);
+          if (err) console.log(res.body);
           assert.equal(res.body.errcode, errcode.WRONG_USER_TOKEN);
           done(err);
         });
@@ -734,7 +734,7 @@ export = function(app, db, request) {
       .send({id:"snutttemp", password:"abc1234"})
       .expect(200)
       .end(function(err, res){
-        if (err) console.log(err);
+        if (err) console.log(res.body);
         token_temp = res.body.token;
         done(err);
       });
@@ -745,7 +745,7 @@ export = function(app, db, request) {
       .send({id:"snutttemp", password:"abc1234"})
       .expect(200)
       .end(function(err, res){
-        if (err) console.log(res);
+        if (err) console.log(res.body);
         assert.equal(res.body.token, token_temp);
         done(err);
       });

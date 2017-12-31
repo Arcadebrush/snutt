@@ -1,7 +1,8 @@
 import {LectureLine} from './fetch';
-import {LectureDocument, newRefLecture} from '../../../model/lecture';
+import {RefLectureModel} from '../../../model/lecture';
 import Util = require('../../../lib/util');
 import * as log4js from 'log4js';
+import { ObjectId } from 'bson';
 var logger = log4js.getLogger();
 
 export type TagStruct = {
@@ -14,10 +15,10 @@ export type TagStruct = {
 };
 
 export function parseLines(year:number, semesterIndex:number, lines:LectureLine[]) : {
-  new_lectures: LectureDocument[],
+  new_lectures: RefLectureModel[],
   tags: TagStruct
 } {
-  var new_lectures:LectureDocument[] = new Array<LectureDocument>();
+  var new_lectures:RefLectureModel[] = new Array<RefLectureModel>();
   var tags:TagStruct = {
     classification : [],
     department : [],
@@ -69,7 +70,7 @@ export function parseLines(year:number, semesterIndex:number, lines:LectureLine[
       }
     }
 
-    new_lectures.push(<any>newRefLecture({
+    new_lectures.push(<any>{
       year: year,
       semester: semesterIndex,
       classification: line.classification,
@@ -83,10 +84,9 @@ export function parseLines(year:number, semesterIndex:number, lines:LectureLine[
       class_time_json: timeJson,
       class_time_mask: Util.timeJsonToMask(timeJson),
       instructor: line.instructor,
-      quota: line.quota,
       remark: line.remark,
       category: line.category
-    }));
+    });
   }
 
   return {

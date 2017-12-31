@@ -1,44 +1,25 @@
-import mongoose = require('mongoose');
+import db = require('../db');
+import { Collection, ObjectId } from 'mongodb';
 import config = require('../config/config');
 import bcrypt = require('bcrypt');
 import crypto = require('crypto');
 import errcode = require('../lib/errcode');
 import {TimetableModel} from './timetable';
 import {CourseBookModel} from './courseBook';
-import {writeFcmLog} from './fcmLog';
+import {FcmLogModel} from './fcmLog';
 import * as log4js from 'log4js';
 import * as fcm from '../lib/fcm';
 var logger = log4js.getLogger();
 
-let UserSchema = new mongoose.Schema({
-  credential : {
-    localId: {type: String, default: null},
-    localPw: {type: String, default: null},
-    fbName: {type: String, default: null},
-    fbId: {type: String, default: null},
-
-    // 위 항목이 없어도 unique credentialHash을 생성할 수 있도록
-    tempDate: {type: Date, default: null},          // 임시 가입 날짜
-    tempSeed: {type: Number, default: null}         // 랜덤 seed
-  },
-  credentialHash : {type: String, default: null},   // credential이 변경될 때 마다 SHA 해싱 (model/user.ts 참조)
-  isAdmin: {type: Boolean, default: false},         // admin 항목 접근 권한
-  regDate: Date,                                    // 회원가입 날짜
-  lastLoginTimestamp: Number,                       // routes/api/api.ts의 토큰 인증에서 업데이트
-  notificationCheckedAt: Date,                      // 새로운 알림이 있는지 확인하는 용도
-  email: String,
-  fcmKey: String,                                   // Firebase Message Key
-
-  // if the user remove its account, active status becomes false
-  // Should not remove user object, because we must preserve the user data and its related objects
-  active: {type: Boolean, default: true}
-});
-
+/*
 UserSchema.index({ credentialHash : 1 })            // 토큰 인증 시
 UserSchema.index({ "credential.localId": 1 })       // ID로 로그인 시
 UserSchema.index({ "credential.fbId": 1 })          // 페이스북으로 로그인 시
 
-let MongooseUserModel = mongoose.model('User', UserSchema);
+mongoose.model('User', UserSchema, 'users');
+*/
+
+var userCollection = db.collection('users');
 
 export class UserModel {
   _id: string;
@@ -47,38 +28,20 @@ export class UserModel {
     localPw?: string,
     fbName?: string,
     fbId?: string,
-    tempDate?: Date,
+    tempDate?: number,
     tempSeed?: number
   };
   private credentialHash : string;
   isAdmin: boolean;
   private regDate: Date;
-  private notificationCheckedAt: Date;
+  notificationCheckedAt: Date;
   email: string;
   fcmKey: string;
   active: boolean;
   lastLoginTimestamp: number;
 
-  mongooseDocument: mongoose.Document;
-
-  constructor(mongooseDocument:mongoose.Document) {
-    if (mongooseDocument === null) {
-      logger.error("UserModel: mongoose document is null");
-      throw "mongoose document is null";
-    }
-    let wrapper = <any>mongooseDocument;
-    this._id = wrapper._id;
-    this.credential = wrapper.credential;
-    this.credentialHash = wrapper.credentialHash;
-    this.isAdmin = wrapper.isAdmin;
-    this.regDate = wrapper.regDate;
-    this.notificationCheckedAt = wrapper.notificationCheckedAt;
-    this.email = wrapper.email;
-    this.fcmKey = wrapper.fcmKey;
-    this.active = wrapper.active;
-    this.lastLoginTimestamp = wrapper.lastLoginTimestamp;
-
-    this.mongooseDocument = mongooseDocument;
+  constructor(plain: Object) {
+    Object.assign(this, plain);
   }
 
   verifyPassword(password: string): Promise<boolean> {
@@ -96,13 +59,17 @@ export class UserModel {
     return this.credentialHash;
   }
 
-  private async saveCredential():Promise<void> {
+  private signCredential() {
     var hmac = crypto.createHmac('sha256', config.secretKey);
     hmac.update(JSON.stringify(this.credential));
     this.credentialHash = hmac.digest('hex');
-    (<any>this.mongooseDocument).credential = this.credential;
-    (<any>this.mongooseDocument).credentialHash = this.credentialHash;
-    this.mongooseDocument = await this.mongooseDocument.save();
+  }
+
+  private async saveCredential():Promise<void> {
+    this.signCredential();
+    await userCollection.update(
+      {_id:this._id},
+      { $set: {credential: this.credential, credentialHash: this.credentialHash}});
   }
 
   compareCredentialHash(hash: string):boolean {
@@ -111,15 +78,18 @@ export class UserModel {
 
   async updateNotificationCheckDate(): Promise<void> {
     this.notificationCheckedAt = new Date();
-    (<any>this.mongooseDocument).notificationCheckedAt = this.notificationCheckedAt;
-    this.mongooseDocument = await this.mongooseDocument.save();
+    await userCollection.update(
+      {_id:this._id},
+      { $set: {notificationCheckedAt: this.notificationCheckedAt}});
   }
-  
-  async changeLocalPassword(password:string): Promise<void> {
+
+  static async assertLocalPassword(password:string): Promise<void> {
     if (!password ||
       !password.match(/^(?=.*\d)(?=.*[a-z])\S{6,20}$/i))
       return Promise.reject(errcode.INVALID_PASSWORD);
+  }
 
+  private async setPasswordHash(password: string) {
     let passwordHash = await new Promise<string>(function(resolve, reject) {
       bcrypt.hash(password, 4, function(err, encrypted) {
         if (err) return reject(err);
@@ -127,7 +97,12 @@ export class UserModel {
       });
     });
     this.credential.localPw = passwordHash;
-    this.saveCredential();
+  }
+  
+  async changeLocalPassword(password:string): Promise<void> {
+    await UserModel.assertLocalPassword(password);
+    await this.setPasswordHash(password);
+    await this.saveCredential();
   }
 
   hasFb():boolean {
@@ -155,10 +130,10 @@ export class UserModel {
   };
 
   hasLocal():boolean {
-    return this.credential.localId !== null;
+    return !(this.credential.localId === null || this.credential.localId == undefined);
   }
 
-  async attachLocal(id:string, password:string):Promise<void> {
+  static async assertLocalId(id: string): Promise<void> {
     if (!id || !id.match(/^[a-z0-9]{4,32}$/i)) {
       throw errcode.INVALID_ID;
     }
@@ -166,7 +141,10 @@ export class UserModel {
     if (await UserModel.getByLocalId(id)) {
       throw errcode.DUPLICATE_ID;
     }
+  }
 
+  async attachLocal(id:string, password:string):Promise<void> {
+    await UserModel.assertLocalId(id);
     this.credential.localId = id;
     await this.changeLocalPassword(password);
   }
@@ -188,14 +166,16 @@ export class UserModel {
 
   async deactivate() {
     this.active = false;
-    (<any>this.mongooseDocument).active = this.active;
-    this.mongooseDocument = await this.mongooseDocument.save();
+    await userCollection.update(
+      {_id:this._id},
+      { $set: {active: this.active}});
   }
 
   async setUserInfo(email: string): Promise<void> {
     this.email = email;
-    (<any>this.mongooseDocument).email = this.email;
-    this.mongooseDocument = await this.mongooseDocument.save();
+    await userCollection.update(
+      {_id:this._id},
+      { $set: {email: this.email}});
   }
 
   async refreshFcmKey(registration_id:string): Promise<void> {
@@ -211,8 +191,9 @@ export class UserModel {
     if (!keyValue) throw "refreshFcmKey failed";
 
     this.fcmKey = keyValue;
-    (<any>this.mongooseDocument).fcmKey = this.fcmKey;
-    this.mongooseDocument = await this.mongooseDocument.save();
+    await userCollection.update(
+      {_id:this._id},
+      { $set: {fcmKey: this.fcmKey}});
   }
 
   /*
@@ -252,7 +233,7 @@ export class UserModel {
     if (!this.fcmKey) throw errcode.USER_HAS_NO_FCM_KEY;
     let destination = this.fcmKey;
     let response = await fcm.sendMsg(destination, title, body);
-    await writeFcmLog(this._id, author, title + '\n' + body, cause, response);
+    await FcmLogModel.write(this._id, author, title + '\n' + body, cause, response);
     return response;
   }
 
@@ -263,24 +244,26 @@ export class UserModel {
   private async createDefaultTimetable(): Promise<TimetableModel> {
     let userId = this._id;
     let coursebook = await CourseBookModel.getRecent();
+    var semesterString = (['1', 'S', '2', 'W'])[coursebook.semester-1];
     return await TimetableModel.createFromParam({
         user_id : userId,
         year : coursebook.year,
         semester : coursebook.semester,
-        title : "나의 시간표"});
+        title : coursebook.year + "-" + semesterString});
   }
 
   updateLastLoginTimestamp(): void {
     let timestamp = Date.now();
     this.lastLoginTimestamp = timestamp;
-    this.mongooseDocument["lastLoginTimestamp"] = timestamp;
-    this.mongooseDocument.save(); // 토큰 인증 시 매번 save하므로 기다리면 안됨
+    // 토큰 인증 시 매번 save하므로 기다리면 안됨
+    // Mongoose 말고 raw mongodb로 접근해야함. 안 하면 transactino 때문에 순서가 꼬임
+    userCollection.update({_id:this._id}, { $set: {lastLoginTimestamp: timestamp}});
   }
 
   static async sendGlobalFcmMsg(title:string, body: string, author: string, cause: string) {
     let destination = "/topics/global";
     let response = await fcm.sendMsg(destination, title, body);
-    await writeFcmLog("global", author, title + '\n' + body, cause, response);
+    await FcmLogModel.write("global", author, title + '\n' + body, cause, response);
     return response;
   }
 
@@ -288,70 +271,104 @@ export class UserModel {
     if (!hash) {
       return Promise.reject(errcode.SERVER_FAULT);
     } else {
-      return mongoose.model('User').findOne({
+      return userCollection.findOne({
         'credentialHash' : hash,
         'active' : true
-      }).exec().then(function(mongooseDocument) {
-        if (mongooseDocument === null) return null;
-        return Promise.resolve(new UserModel(mongooseDocument));
+      }).then(function(document) {
+        if (document === null) return null;
+        return Promise.resolve(new UserModel(document));
       });
     }
   }
 
   static getByMongooseId(mid:string) : Promise<UserModel> {
-    return MongooseUserModel.findOne({'_id' : mid, 'active' : true })
-    .exec().then(function(userDocument){
-      if (userDocument === null) return null;
-      return Promise.resolve(new UserModel(userDocument));
+    return userCollection.findOne({'_id' : mid, 'active' : true })
+    .then(function(document){
+      if (document === null) return null;
+      return Promise.resolve(new UserModel(document));
     });
   }
 
   static getByLocalId(id:string) : Promise<UserModel> {
-    return MongooseUserModel.findOne({'credential.localId' : id, 'active' : true })
-    .exec().then(function(userDocument){
-      if (userDocument === null) return null;
-      return Promise.resolve(new UserModel(userDocument));
+    return userCollection.findOne({'credential.localId' : id, 'active' : true })
+    .then(function(document){
+      if (document === null) return null;
+      return Promise.resolve(new UserModel(document));
     });
   }
 
-  private static async create(): Promise<UserModel> {
-    let mongooseDocument = new MongooseUserModel({regDate: new Date});
-    let user = new UserModel(mongooseDocument);
+  static async createLocal(id:string, password:string) : Promise<UserModel> {
+    await UserModel.assertLocalId(id);
+    await UserModel.assertLocalPassword(password);
+    let user: UserModel = new UserModel(
+      {
+        credential: {
+          localId: id
+        },
+        regDate: new Date,
+        lastLoginTimestamp: Date.now(),
+        active: true
+      }
+    );
+    await user.setPasswordHash(password);
+    user.signCredential();
+    let result = await userCollection.insertOne(user);
+    user._id = <any>result.insertedId;
     await user.createDefaultTimetable();
     return user;
   }
 
-  static async createLocal(id:string, password:string) : Promise<UserModel> {
-    let user = await this.create();
-    await user.attachLocal(id, password);
+  static async createFb(name:string, id:string): Promise<UserModel> {
+    if (!id) {
+      var err = errcode.NO_FB_ID_OR_TOKEN;
+      return Promise.reject(err);
+    }
+    let user: UserModel = new UserModel(
+      {
+        credential: {
+          fbName: name,
+          fbId: id
+        },
+        regDate: new Date,
+        lastLoginTimestamp: Date.now(),
+        active: true
+      }
+    );
+    user.signCredential();
+    let result = await userCollection.insertOne(user);
+    user._id = <any>result.insertedId;
+    await user.createDefaultTimetable();
+    return user;
+  }
+
+  static async createTemp() : Promise<UserModel> {
+    let user: UserModel = new UserModel(
+      {
+        credential: {
+          tempDate: Date.now(),
+          tempSeed: Math.floor(Math.random() * 1000)
+        },
+        regDate: new Date,
+        lastLoginTimestamp: Date.now(),
+        active: true
+      }
+    );
+    user.signCredential();
+    let result = await userCollection.insertOne(user);
+    user._id = <any>result.insertedId;
+    await user.createDefaultTimetable();
     return user;
   }
   
   static async getByFb(name:string, id:string) : Promise<UserModel> {
-    let mongooseDocument = await MongooseUserModel.findOne({'credential.fbId' : id, 'active' : true }).exec();
-    if (mongooseDocument === null) return null;
-    return new UserModel(mongooseDocument);
-  }
-
-  static async createFb(name:string, id:string): Promise<UserModel> {
-    let user = await this.create();
-    await user.attachFb(name, id);
-    return user;
+    let document = await userCollection.findOne({'credential.fbId' : id, 'active' : true });
+    if (document === null) return null;
+    return new UserModel(document);
   }
 
   static async getFbOrCreate(name:string, id:string) : Promise<UserModel> {
     let user = await UserModel.getByFb(name, id);
     if (user) return user;
     else return UserModel.createFb(name, id);
-  }
-
-  static async createTemp() : Promise<UserModel> {
-    let user = await this.create();
-    user.credential = {
-      tempDate: new Date(),
-      tempSeed: Math.floor(Math.random() * 1000)
-    }
-    await user.saveCredential();
-    return user;
   }
 }

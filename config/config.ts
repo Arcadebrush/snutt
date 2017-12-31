@@ -15,6 +15,8 @@ class SnuttConfig {
     feedback2github_repo_owner:string;
     feedback2github_repo_name:string;
     mongoUri: string;
+    mongoDbName: string;
+    mongoTestDbName: string;
 
     constructor() {
         try {
@@ -29,7 +31,9 @@ class SnuttConfig {
             this.feedback2github_repo_name = config.feedback2github.repo_name;
             this.feedback2github_repo_owner = config.feedback2github.repo_owner;
             this.fcm_project_id = config.fcm.project_id;
-            this.mongoUri = config.mongo;
+            this.mongoUri = config.mongo.uri;
+            this.mongoDbName = config.mongo.db;
+            this.mongoTestDbName = config.mongo.test_db;
         } catch (e) {
             console.error(e.message);
             console.error("Could not find config file.");

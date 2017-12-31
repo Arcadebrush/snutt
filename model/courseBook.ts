@@ -1,37 +1,29 @@
-import mongoose = require('mongoose');
+import db = require('../db');
 
-export interface CourseBookDocument extends mongoose.Document{
-  year: number,
-  semester: number,
+var coursebookCollection = db.collection("coursebooks");
+
+export class CourseBookModel {
+  year: number
+  semester: number
   updated_at: Date
+
+  static async getAll(): Promise<CourseBookModel[]> {
+    return await coursebookCollection.find({}, {
+      sort: [["year", -1], ["semester", -1]]
+    });
+  }
+  
+  static async getRecent(): Promise<CourseBookModel> {
+    return await coursebookCollection.findOne({}, {
+      sort: [["year", -1], ["semester", -1]]
+    });
+  }
+
+  static async update(year: number, semester: number): Promise<CourseBookModel> {
+    return (await coursebookCollection.findOneAndUpdate({ year: year, semester: semester },
+    { updated_at: new Date() },
+    {
+      upsert: true // insert the document if it does not exist
+    })).value;
+  }
 }
-
-interface _CourseBookModel extends mongoose.Model<CourseBookDocument>{
-  getAll():Promise<mongoose.Types.DocumentArray<CourseBookDocument>>;
-  getRecent():Promise<CourseBookDocument>;
-}
-
-var CourseBookSchema = new mongoose.Schema({
-  year: { type: Number, required: true },
-  semester: { type: Number, required: true },
-  updated_at: Date
-});
-
-CourseBookSchema.pre('save', function(next) {
-  this.updated_at = Date.now();
-  next();
-});
-
-CourseBookSchema.statics.getAll = function() {
-  var query:mongoose.Query<any> = CourseBookModel.find({}, '-_id year semester updated_at')
-  .sort([["year", -1], ["semester", -1]]);
-  return query.exec();
-};
-
-CourseBookSchema.statics.getRecent = function() {
-  var query:mongoose.Query<any> = CourseBookModel.findOne({}, '-_id year semester updated_at')
-  .sort([["year", -1], ["semester", -1]]);
-  return query.exec();
-};
-
-export let CourseBookModel = <_CourseBookModel>mongoose.model<CourseBookDocument>('CourseBook', CourseBookSchema);
