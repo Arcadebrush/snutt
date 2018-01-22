@@ -20,11 +20,12 @@ db.connect();
 let githubToken = config.feedback2github_token;
 let repoOwner = config.feedback2github_repo_owner;
 let repoName = config.feedback2github_repo_name;
+let userAgent = config.feedback2github_user_agent;
 let apiIssuesUrl = "https://api.github.com/repos/" + repoOwner + "/" + repoName + "/issues";
 let apiHeader = {
     Accept: "application/vnd.github.v3+json",
     Authorization: "token " + githubToken,
-    "User-Agent": "bekker"
+    "User-Agent": userAgent
 };
 
 log4js.configure({

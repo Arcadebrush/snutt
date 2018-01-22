@@ -14,6 +14,7 @@ class SnuttConfig {
     feedback2github_token:string;
     feedback2github_repo_owner:string;
     feedback2github_repo_name:string;
+    feedback2github_user_agent:string;
     mongoUri: string;
 
     constructor() {
@@ -28,6 +29,7 @@ class SnuttConfig {
             this.feedback2github_token = config.feedback2github.token;
             this.feedback2github_repo_name = config.feedback2github.repo_name;
             this.feedback2github_repo_owner = config.feedback2github.repo_owner;
+            this.feedback2github_user_agent = config.feedback2github.user_agent;
             this.fcm_project_id = config.fcm.project_id;
             this.mongoUri = config.mongo;
         } catch (e) {

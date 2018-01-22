@@ -8,5 +8,6 @@ fcm:
   project_id: testprojectid
 feedback2github:
   token: testapikey
+  user_agent: snutt
   repo_owner: wafflestudio
   repo_name: snutt-feedbacks
