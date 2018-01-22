@@ -43,8 +43,6 @@ router.get('/member', function(req, res, next) {
   res.render('member.html');
 });
 
-var api_info;
-
 /**
  * Check API Key
  */
@@ -119,12 +117,6 @@ router.get('/colors/:colorName', function(req, res, next) {
   let colorWithName = libcolor.getColorList(req.params.colorName);
   if (colorWithName) res.json({message: "ok", colors: colorWithName.colors, names: colorWithName.names});
   else res.status(404).json({errcode:errcode.COLORLIST_NOT_FOUND, message: "color list not found"});
-});
-
-router.get('/app_version', function(req, res, next) {
-  var version = apiKey.getAppVersion(api_info.string);
-  if (version) res.json({version: version});
-  else res.status(404).json({errcode:errcode.UNKNOWN_APP, message: "unknown app"});
 });
 
 router.post('/feedback', async function(req, res, next) {
