@@ -8,7 +8,7 @@ import express = require('express');
 
 var router = express.Router();
 
-import {CourseBookModel} from 'core/model/courseBook';
+import {courseBookService} from 'core/courseBook';
 
 import authRouter = require('./auth');
 import timetableRouter = require('./timetable');
@@ -26,6 +26,9 @@ import libcolor = require('core/color');
 import * as log4js from 'log4js';
 var logger = log4js.getLogger();
 
+/**
+ * 정적 페이지는 오랫동안 캐시
+ */
 router.use(function(req, res, next) {
   res.setHeader('Cache-Control', 'public, max-age=86400');
   next();
@@ -45,6 +48,7 @@ router.get('/member', function(req, res, next) {
 
 /**
  * Check API Key
+ * 캐시 정책 초기화 - 항상 리모트의 컨텐츠와 비교하고 같을 때엔 304 상태코드
  */
 router.use(function(req, res, next) {
   var token = <string>req.headers['x-access-apikey'];
@@ -59,7 +63,7 @@ router.use(function(req, res, next) {
 
 router.get('/course_books', async function(req, res, next) {
   try {
-    res.json(await CourseBookModel.getAll());
+    res.json(await courseBookService.getAll());
   } catch (err) {
     logger.error(err);
     return res.status(500).json({errcode: errcode.SERVER_FAULT, message: "server fault"});
@@ -68,13 +72,16 @@ router.get('/course_books', async function(req, res, next) {
 
 router.get('/course_books/recent', async function(req, res, next) {
   try {
-    res.json(await CourseBookModel.getRecent());
+    res.json(await courseBookService.getRecent());
   } catch (err) {
     logger.error(err);
     return res.status(500).json({errcode: errcode.SERVER_FAULT, message: "server fault"});
   }
 });
 
+/**
+ * 수강스누 수강편람 url을 전달
+ */
 router.get('/course_books/official', function(req, res, next) {
   var year = req.query.year;
   var semester = Number(req.query.semester);
@@ -108,10 +115,6 @@ router.get('/course_books/official', function(req, res, next) {
 router.use('/search_query', searchQueryRouter);
 
 router.use('/tags', tagsRouter);
-
-router.get('/colors', function(req, res, next) {
-  res.json({message: "ok", colors: libcolor.getLegacyColors(), names: libcolor.getLegacyNames()});
-});
 
 router.get('/colors/:colorName', function(req, res, next) {
   let colorWithName = libcolor.getColorList(req.params.colorName);

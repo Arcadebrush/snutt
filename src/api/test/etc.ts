@@ -9,7 +9,7 @@ import errcode = require('core/errcode');
 
 export = function(app, db, request) {
   it('Color lists', function(done) {
-    request.get('/colors')
+    request.get('/colors/vivid_ios')
       .expect(200)
       .end(function(err, res){
         if (err) return done(err);

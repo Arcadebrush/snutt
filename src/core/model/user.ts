@@ -4,7 +4,7 @@ import bcrypt = require('bcrypt');
 import crypto = require('crypto');
 import errcode = require('../errcode');
 import {TimetableModel} from './timetable';
-import {CourseBookModel} from './courseBook';
+import {courseBookService} from '../courseBook';
 import {writeFcmLog} from './fcmLog';
 import * as log4js from 'log4js';
 import * as fcm from '../fcm';
@@ -263,7 +263,7 @@ export class UserModel {
 
   private async createDefaultTimetable(): Promise<TimetableModel> {
     let userId = this._id;
-    let coursebook = await CourseBookModel.getRecent();
+    let coursebook = await courseBookService.getRecent();
     return await TimetableModel.createFromParam({
         user_id : userId,
         year : coursebook.year,

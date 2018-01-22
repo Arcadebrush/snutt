@@ -2,7 +2,6 @@ import express = require('express');
 var router = express.Router();
 
 import {UserModel} from 'core/model/user';
-import {CourseBookModel} from 'core/model/courseBook';
 import {TimetableModel} from 'core/model/timetable';
 import errcode = require('core/errcode');
 import * as log4js from 'log4js';

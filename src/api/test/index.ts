@@ -13,7 +13,7 @@ import config = require('core/config');
 import mongoose = require('mongoose');
 import app = require('../app');
 
-import { CourseBookModel } from 'core/model/courseBook';
+import { courseBookService, CourseBook } from 'core/courseBook';
 import {newRefLecture} from 'core/model/lecture';
 
 let request = supertest(app);
@@ -43,8 +43,8 @@ describe('API Test', function() {
 
   // Add 2 coursebooks, 2016-2 and 2015-W
   before('add initial coursebooks for test', function(done) {
-    let promise1 = new CourseBookModel({ year: 2015, semester: 4, updated_at: Date.now()}).save();
-    let promise2 = new CourseBookModel({ year: 2016, semester: 3, updated_at: Date.now()}).save();
+    let promise1 = courseBookService.insert(2015, 4);
+    let promise2 = courseBookService.insert(2016, 3);
     Promise.all([promise1, promise2]).catch(function(err) {
       done(err);
     }).then(function(result) {

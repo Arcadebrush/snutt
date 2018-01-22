@@ -5,7 +5,7 @@
 import express = require('express');
 import errcode = require('core/errcode');
 import {UserModel} from 'core/model/user';
-import {CourseBookModel} from 'core/model/courseBook';
+import {courseBookService} from 'core/courseBook';
 import {getRecentFcmLog} from 'core/model/fcmLog';
 import {getFeedback} from 'core/model/feedback';
 import {getStatistics, getLogFileContent} from 'core/model/admin';
@@ -71,7 +71,7 @@ router.get('/recent_fcm_log', async function(req, res, next) {
 });
 
 router.get('/coursebooks', async function(req, res, next) {
-  let coursebooks = await CourseBookModel.getAll();
+  let coursebooks = await courseBookService.getAll();
   return res.json(coursebooks);
 });
 

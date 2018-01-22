@@ -13,7 +13,7 @@ import {fetchSugangSnu} from './data/fetch';
 import {TagStruct, parseLines} from './data/parse';
 import {LectureDiff, compareLectures} from './data/compare';
 import {notifyUpdated} from './data/notify';
-import {CourseBookModel} from 'core/model/courseBook';
+import {courseBookService} from 'core/courseBook';
 import {LectureDocument, deleteAllSemester, insertManyRefLecture} from 'core/model/lecture';
 import {NotificationModel, Type as NotificationType} from 'core/model/notification';
 import {TagList} from 'core/model/tagList';
@@ -42,7 +42,7 @@ log4js.configure({
  * 현재 수강편람과 다음 수강편람
  */
 async function getUpdateCandidate():Promise<[[number, number]]> {
-  let recentCoursebook = await CourseBookModel.getRecent();
+  let recentCoursebook = await courseBookService.getRecent();
   if (!recentCoursebook) {
     let date = new Date();
     let year = date.getFullYear();
@@ -125,13 +125,7 @@ export async function fetchAndInsert(year:number, semesterIndex:number, fcm_enab
 
   logger.info("saving coursebooks...");
   /* Send notification only when coursebook is new */
-  var doc = await CourseBookModel.findOneAndUpdate({ year: Number(year), semester: semesterIndex },
-    { updated_at: Date.now() },
-    {
-      new: false,   // return new doc
-      upsert: true // insert the document if it does not exist
-    })
-    .exec();
+  var doc = await courseBookService.updateDateOrInsertAndReturnOld(Number(year), semesterIndex);
 
   if (!doc) {
     if (fcm_enabled) await UserModel.sendGlobalFcmMsg("신규 수강편람", noti_msg, "batch/coursebook", "new coursebook");

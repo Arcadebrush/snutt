@@ -66,18 +66,6 @@ class Color {
   static numColor = 9;
   static CUSTOM_COLOR = 0;
 
-  static get_random_color_legacy(): { fg:string, bg:string } {
-    return legacypastel9[Math.floor(Math.random() * legacypastel9.length)]
-  };
-
-  static getLegacyColors() {
-    return legacypastel9;
-  }
-
-  static getLegacyNames() {
-    return legacyname9;
-  }
-
   static getColorList(name:string) {
     if (name == 'legacy' || name == 'pastel') return { colors: legacypastel9, names: legacyname9 };
     if (name == 'vivid_ios') return { colors:vivid9_ios, names: vividname9 };
